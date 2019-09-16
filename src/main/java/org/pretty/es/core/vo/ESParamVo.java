@@ -1,4 +1,4 @@
-package org.pretty.es.core.vo.es;
+package org.pretty.es.core.vo;
 
 import java.util.Map;
 
