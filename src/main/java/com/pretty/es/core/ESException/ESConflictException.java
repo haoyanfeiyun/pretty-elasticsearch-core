@@ -1,4 +1,4 @@
-package org.pretty.es.core.ESException;
+package com.pretty.es.core.ESException;
 
 /**
  * ES版本冲突异常，仅针对于ESId重复插入的问题

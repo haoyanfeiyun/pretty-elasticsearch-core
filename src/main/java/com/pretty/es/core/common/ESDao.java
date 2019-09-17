@@ -1,8 +1,8 @@
-package org.pretty.es.core.common;
+package com.pretty.es.core.common;
 
-import org.pretty.es.core.util.CUDResponse;
-import org.pretty.es.core.vo.ESPage;
-import org.pretty.es.core.vo.ESParamVo;
+import com.pretty.es.core.util.CUDResponse;
+import com.pretty.es.core.vo.ESPage;
+import com.pretty.es.core.vo.ESParamVo;
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;

@@ -1,4 +1,4 @@
-package org.pretty.es.core.vo;
+package com.pretty.es.core.vo;
 
 public class ESPage {
 	 	private long totalNumber;//当前表中总条目数量

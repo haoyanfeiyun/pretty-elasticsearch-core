@@ -1,7 +1,7 @@
-package org.pretty.es.core.util;
+package com.pretty.es.core.util;
 
-import org.pretty.es.core.annotion.ESId;
-import org.pretty.es.core.annotion.ESMetaData;
+import com.pretty.es.core.annotion.ESId;
+import com.pretty.es.core.annotion.ESMetaData;
 
 import java.lang.reflect.Field;
 

@@ -1,4 +1,4 @@
-package org.pretty.es.core.util;
+package com.pretty.es.core.util;
 
 public class ESConstant {
 

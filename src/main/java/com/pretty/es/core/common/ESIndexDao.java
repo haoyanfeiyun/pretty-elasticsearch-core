@@ -1,4 +1,4 @@
-package org.pretty.es.core.common;
+package com.pretty.es.core.common;
 
 import org.elasticsearch.action.admin.indices.rollover.RolloverRequest;
 

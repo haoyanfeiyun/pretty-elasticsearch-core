@@ -1,4 +1,4 @@
-package org.pretty.es.core.annotion;
+package com.pretty.es.core.annotion;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

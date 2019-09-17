@@ -1,6 +1,6 @@
-package org.pretty.es.core.common.impl;
+package com.pretty.es.core.common.impl;
 
-import org.pretty.es.core.common.ESIndexDao;
+import com.pretty.es.core.common.ESIndexDao;
 import com.google.gson.Gson;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;

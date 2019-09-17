@@ -1,4 +1,4 @@
-package org.pretty.es.core.ESException;
+package com.pretty.es.core.ESException;
 
 /**
  * ESID不存在异常
