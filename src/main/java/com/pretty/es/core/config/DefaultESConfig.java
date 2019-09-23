@@ -1,7 +1,6 @@
 package com.pretty.es.core.config;
 
 import com.pretty.es.core.common.impl.ESDaoImpl;
-import com.pretty.es.core.common.impl.ESDaoImpl;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
