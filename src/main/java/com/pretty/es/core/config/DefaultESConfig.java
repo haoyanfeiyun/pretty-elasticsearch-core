@@ -17,7 +17,7 @@ import org.springframework.context.annotation.*;
 @ComponentScan(basePackages = "com")
 public class DefaultESConfig {
 
-    @Value("${es.server.host}")
+    @Value("${es.server.host:127.0.0.1:9200}")
     private String host;
 
     @Value("${es.xpark.enable:false}")
