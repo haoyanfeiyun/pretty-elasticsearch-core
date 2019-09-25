@@ -17,16 +17,16 @@ import org.springframework.context.annotation.*;
 @ComponentScan(basePackages = "com")
 public class DefaultESConfig {
 
-    @Value("${es.server.host:127.0.0.1:9200}")
+    @Value("${default.es.server.host:127.0.0.1:9200}")
     private String host;
 
-    @Value("${es.xpark.enable:false}")
+    @Value("${default.es.xpark.enable:false}")
     private boolean xparkEnable;
 
-    @Value("${es.xpark.username:noXpark}")
+    @Value("${default.es.xpark.username:noXpark}")
     private String username;
 
-    @Value("${es.xpark.password:noXpark}")
+    @Value("${default.es.xpark.password:noXpark}")
     private String password;
 
     @Primary
