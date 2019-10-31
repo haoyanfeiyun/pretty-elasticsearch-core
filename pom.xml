@@ -110,29 +110,6 @@
 
     </dependencies>
 
-    <repositories>
-        <repository>
-            <id>nexus-snapshots</id>
-            <name>Snapshots</name>
-            <url>http://maven.fn.com/nexus/content/groups/public</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>always</updatePolicy>
-                <checksumPolicy>warn</checksumPolicy>
-            </snapshots>
-        </repository>
-    </repositories>
-    <distributionManagement>
-        <snapshotRepository>
-            <id>nexus-snapshots</id>
-            <name>Snapshots</name>
-            <url>http://maven.fn.com/nexus/content/repositories/snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
-
     <build>
         <resources>
             <resource>
