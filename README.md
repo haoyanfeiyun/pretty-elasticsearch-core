@@ -1,33 +1,35 @@
 # pretty-elasticsearch-core
 
-elasticsearch的java工具包，使用了RestHighLevelClient
+elasticsearch的HighRestClient使用工具包
 
 一、使用说明
 
 注1：以下使用都需要引入pretty-elasticsearch-core包，如下：
-
+```
 <dependency>
     <groupId>com.feiniu</groupId>
     <artifactId>pretty-elasticsearch-core</artifactId>
     <version>1.0.1-SNAPSHOT</version>
 </dependency>
+```
 
 注2：以下使用都需要给索引对应的实体类添加注解，标记索引名、类型和id，如下：
-
+```java
 @ESMetaData(indexName = "stock_preempt_fulfillsuborder", indexType = "_doc")
 public class StockPreemptFulfillsuborderOld{
     @ESId
     private String ESId;// ESId
 }
+```
 
 1、单集群配置和使用
 1.1、添加配置
-
+```
 #ES配置
 es.server.host=stock-preempt-es.beta1.fn:9200
-
+```
 1.2、使用
-
+```java
 @Autowired
 private ESDao<StockPreemptFulfillsuborderOld> ESDaoOld;
 @Test
@@ -36,17 +38,17 @@ public void configOutTest() throws Exception {
     stock.setStoreNo("1001");
     List<StockPreemptFulfillsuborderOld> resultList = ESDaoOld.search(stock);
 }
-
+```
 2、多集群配置和使用
 2.1、添加配置
-
+```
 #ES配置
 es.server.host=stock-preempt-es.beta1.fn:9200
 #ES配置-fresh集群
 fresh.es.server.host=10.202.252.3:9200
-
+```
 2.2、加入ESConfig类		
-
+```java
 @Configuration
 @ComponentScan(basePackages = "com")
 public class ESConfig {
@@ -103,10 +105,10 @@ public class ESConfig {
         return httpHosts;
     }
 }
-
+```
 2.3、使用
 这里需要加上@Qualifier注解，标记注入哪个bean
-
+```java
 @Autowired
 @Qualifier("esDaoFresh")
 private ESDao<StockPreemptFulfillsuborderOld> ESDaoOldFresh;
@@ -118,12 +120,12 @@ public void configOutTest() throws Exception {
     stock.setStoreNo("1001");
     List<StockPreemptFulfillsuborderOld> resultListFresh = ESDaoOldFresh.search(stock);
 }
-
+```
 3、X-Park配置
 	如果ES使用了X-Park，只需加入配置信息即可，具体修改如下：
 
 3.1、添加配置
-
+```
 #ES x-park配置
 es.xpark.enable=true
 es.xpark.username=elastic
@@ -133,7 +135,7 @@ es.xpark.password=elastic
 fresh.es.xpark.enable=true
 fresh.es.xpark.username=elastic
 fresh.es.xpark.password=elastic
-
+```
 *添加x-park对使用不受影响
 *如果多个集群都使用了xpark，则需要分别添加对应的配置信息,如上图
 
