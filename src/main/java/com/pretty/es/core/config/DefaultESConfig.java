@@ -7,6 +7,8 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -16,6 +18,8 @@ import org.springframework.context.annotation.*;
 @Configuration
 @ComponentScan(basePackages = "com")
 public class DefaultESConfig {
+
+    private static final Logger LOGGER = LogManager.getLogger(DefaultESConfig.class);
 
     @Value("${default.es.server.host:127.0.0.1:9200}")
     private String host;
@@ -33,6 +37,29 @@ public class DefaultESConfig {
     @Scope("singleton")
     @Bean(destroyMethod = "close")
     public RestHighLevelClient clientInstance() {
+        return this.getClient();
+    }
+
+    @Bean
+    @Primary
+    public ESDaoImpl esDaoInstance() {
+        ESDaoImpl esDao = new ESDaoImpl();
+        esDao.setClient(getClient());
+        return esDao;
+    }
+
+    private HttpHost[] getHttpHosts(String host) {
+        String[] hosts = host.split(",");
+        HttpHost[] httpHosts = new HttpHost[hosts.length];
+        for (int i = 0; i < httpHosts.length; i++) {
+            String h = hosts[i];
+            httpHosts[i] = new HttpHost(h.split(":")[0]
+                    , Integer.parseInt(h.split(":")[1]), "http");
+        }
+        return httpHosts;
+    }
+
+    private RestHighLevelClient getClient() {
         RestHighLevelClient client;
         try {
             HttpHost[] httpHosts = getHttpHosts(host);
@@ -55,28 +82,9 @@ public class DefaultESConfig {
                 client = new RestHighLevelClient(RestClient.builder(httpHosts));
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("getClient Failed!", e);
             return null;
         }
         return client;
-    }
-
-    @Bean
-    @Primary
-    public ESDaoImpl esDaoInstance() {
-        ESDaoImpl esDao = new ESDaoImpl();
-        esDao.setClient(clientInstance());
-        return esDao;
-    }
-
-    private HttpHost[] getHttpHosts(String host) {
-        String[] hosts = host.split(",");
-        HttpHost[] httpHosts = new HttpHost[hosts.length];
-        for (int i = 0; i < httpHosts.length; i++) {
-            String h = hosts[i];
-            httpHosts[i] = new HttpHost(h.split(":")[0]
-                    , Integer.parseInt(h.split(":")[1]), "http");
-        }
-        return httpHosts;
     }
 }

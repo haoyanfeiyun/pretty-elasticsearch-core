@@ -1,11 +1,21 @@
 package com.pretty.es.core.common.impl;
 
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.google.gson.Gson;
+import com.pretty.es.core.common.ESDao;
+import com.pretty.es.core.util.CUDResponse;
+import com.pretty.es.core.util.ESConstant;
+import com.pretty.es.core.util.MetaData;
+import com.pretty.es.core.util.Tools;
+import com.pretty.es.core.vo.ESPage;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.DocWriteResponse;
+import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
+import org.elasticsearch.action.admin.indices.get.GetIndexResponse;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -30,13 +40,6 @@ import org.elasticsearch.script.Script;
 import org.elasticsearch.search.Scroll;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import com.pretty.es.core.common.ESDao;
-import com.pretty.es.core.util.CUDResponse;
-import com.pretty.es.core.util.ESConstant;
-import com.pretty.es.core.util.MetaData;
-import com.pretty.es.core.util.Tools;
-import com.pretty.es.core.vo.ESPage;
-import com.pretty.es.core.vo.ESParamVo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,64 +47,78 @@ import java.util.Map;
 
 public class ESDaoImpl<T> implements ESDao<T> {
 
-    private Logger logger = Logger.getLogger(ESDaoImpl.class);
+    private Logger logger = LogManager.getLogger(ESDaoImpl.class);
 
     private RestHighLevelClient client;
 
     @Override
-    public boolean save(T t) throws Exception {
+    public boolean add(T t) throws Exception {
         return this.save(t, DocWriteRequest.OpType.INDEX);
     }
 
     @Override
-    public CUDResponse save(List<T> list) throws Exception {
+    public CUDResponse add(List<T> list) throws Exception {
         return this.save(list, DocWriteRequest.OpType.INDEX);
     }
 
     @Override
+    public boolean addNoRepeat(T t) throws Exception {
+        return this.save(t, DocWriteRequest.OpType.CREATE);
+    }
+
+    @Override
+    public CUDResponse addNoRepeat(List<T> list) throws Exception {
+        return this.save(list, DocWriteRequest.OpType.CREATE);
+    }
+
     public boolean save(T t, DocWriteRequest.OpType opType) throws Exception {
         if (t == null) {
             throw new Exception("es parameter is null!");
         }
-
+        Gson gson = new Gson();
+        Map map = gson.fromJson(gson.toJson(t), Map.class);
         MetaData metaData = Tools.getMetaData(t.getClass());
         String id = Tools.getESId(t);
         String indexName = metaData.getIndexName();
         String indexType = metaData.getIndexType();
-        IndexRequest request;
+        IndexRequest request = new IndexRequest(indexName, indexType, id);
 
+        // 如果没有id，当opType=CREATE的时候，会报错，所以此处设置为INDEX，保证数据正常插入
         if (StringUtils.isEmpty(id)) {
-            request = new IndexRequest(indexName, indexType);
-        } else {
-            request = new IndexRequest(indexType, indexType, id);
+            opType = DocWriteRequest.OpType.INDEX;
         }
-
-        Map map = JSONObject.parseObject(JSON.toJSONString(t), Map.class);
-        request.source(map);
         request.opType(opType);
+        request.source(map);
         IndexResponse response = client.index(request, RequestOptions.DEFAULT);
 
         return dealResponse(response);
     }
 
-    @Override
     public CUDResponse save(List<T> list, DocWriteRequest.OpType opType) throws Exception {
         if (list == null || list.isEmpty()) {
             throw new Exception("es parameter is null!");
         }
+        Gson gson = new Gson();
+        DocWriteRequest.OpType useOpType;
 
         MetaData metaData = Tools.getMetaData(list.get(0).getClass());
         String indexName = metaData.getIndexName();
         String indexType = metaData.getIndexType();
-        BulkRequest bulkRequest = null;
+        BulkRequest bulkRequest = new BulkRequest();
 
         for (T t : list) {
+            useOpType = opType;
             String id = Tools.getESId(t);
-            Map map = JSONObject.parseObject(JSON.toJSONString(t), Map.class);
+            Map map = gson.fromJson(gson.toJson(t), Map.class);
+
+            // 如果没有id，当opType=CREATE的时候，会报错，所以此处设置为INDEX，保证数据正常插入
+            if (StringUtils.isEmpty(id)) {
+                useOpType = DocWriteRequest.OpType.INDEX;
+            }
 
             IndexRequest request = new IndexRequest(indexName, indexType, id)
                     .source(map)
-                    .opType(opType);
+                    .opType(useOpType);
 
             bulkRequest.add(request);
         }
@@ -150,7 +167,8 @@ public class ESDaoImpl<T> implements ESDao<T> {
     public CUDResponse deleteByQuery(QueryBuilder queryBuilder, Class<T> clazz) throws Exception {
         MetaData metaData = Tools.getMetaData(clazz);
         String indexName = metaData.getIndexName();
-        DeleteByQueryRequest request = new DeleteByQueryRequest(indexName);//6.5就把type给屏蔽掉了
+
+        DeleteByQueryRequest request = new DeleteByQueryRequest(indexName);
         request.setQuery(queryBuilder);
         request.setConflicts("proceed");//发生冲突继续执行
 
@@ -159,11 +177,42 @@ public class ESDaoImpl<T> implements ESDao<T> {
     }
 
     @Override
+    public void deleteByQueryBigData(QueryBuilder queryBuilder, Class<T> clazz) throws Exception {
+        MetaData metaData = Tools.getMetaData(clazz);
+        String indexName = metaData.getIndexName();
+
+        // 先获取索引的分片数，用于设置切片数slice，提高并行效率
+        GetIndexRequest indexRequest = new GetIndexRequest().indices(indexName);
+        GetIndexResponse indexResponse = client.indices().get(indexRequest, RequestOptions.DEFAULT);
+        int numberOfShard = Integer.parseInt(indexResponse.getSetting(indexName, "index.number_of_shards"));
+
+        DeleteByQueryRequest request = new DeleteByQueryRequest(indexName);
+        request.setQuery(queryBuilder);
+        request.setSlices(numberOfShard);
+//        request.setBatchSize(5000);//默认是1000，cpu内存足够的话可以加大
+        request.setConflicts("proceed");//发生冲突继续执行
+
+        ActionListener listener = new ActionListener<BulkByScrollResponse>() {
+            @Override
+            public void onResponse(BulkByScrollResponse response) {
+                logger.info("deleteByQueryBigData success!, result:" + response.toString());
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("deleteByQueryBigData failed!, queryBuilder:" + queryBuilder.toString(), e);
+            }
+        };
+        client.deleteByQueryAsync(request, RequestOptions.DEFAULT, listener);
+    }
+
+    @Override
     public boolean update(T t) throws Exception {
         if (t == null) {
             throw new Exception("es parameter is null!");
         }
 
+        Gson gson = new Gson();
         MetaData metaData = Tools.getMetaData(t.getClass());
         String indexName = metaData.getIndexName();
         String indexType = metaData.getIndexType();
@@ -173,7 +222,7 @@ public class ESDaoImpl<T> implements ESDao<T> {
             throw new Exception("ESId can not be null!");
         }
 
-        Map map = JSONObject.parseObject(JSON.toJSONString(t), Map.class);
+        Map map = gson.fromJson(gson.toJson(t), Map.class);
         UpdateRequest request = new UpdateRequest(indexName, indexType, id).doc(map);
         UpdateResponse response = client.update(request, RequestOptions.DEFAULT);
 
@@ -189,7 +238,6 @@ public class ESDaoImpl<T> implements ESDao<T> {
         MetaData metaData = Tools.getMetaData(list.get(0).getClass());
         String indexName = metaData.getIndexName();
         String indexType = metaData.getIndexType();
-
 
         BulkRequest bulkRequest = new BulkRequest();
 
@@ -209,12 +257,12 @@ public class ESDaoImpl<T> implements ESDao<T> {
 
     @Override
     public boolean updateCover(T t) throws Exception {
-        return save(t);
+        return add(t);
     }
 
     @Override
     public CUDResponse updateCover(List<T> list) throws Exception {
-        return save(list);
+        return add(list);
     }
 
     @Override
@@ -232,6 +280,38 @@ public class ESDaoImpl<T> implements ESDao<T> {
     }
 
     @Override
+    public void updateByQueryBigData(QueryBuilder queryBuilder, Script script, Class<T> clazz) throws Exception {
+        MetaData metaData = Tools.getMetaData(clazz);
+        String indexName = metaData.getIndexName();
+
+        // 先获取索引的分片数，用于设置切片数slice，提高并行效率
+        GetIndexRequest indexRequest = new GetIndexRequest().indices(indexName);
+        GetIndexResponse indexResponse = client.indices().get(indexRequest, RequestOptions.DEFAULT);
+        int numberOfShard = Integer.parseInt(indexResponse.getSetting(indexName, "index.number_of_shards"));
+
+        UpdateByQueryRequest request = new UpdateByQueryRequest(indexName);
+        request.setQuery(queryBuilder);
+        request.setScript(script);
+        request.setSlices(numberOfShard);
+        request.setConflicts("proceed");//发生冲突继续执行
+        System.out.println(request.toString());
+
+        ActionListener listener = new ActionListener<BulkByScrollResponse>() {
+            @Override
+            public void onResponse(BulkByScrollResponse response) {
+                logger.info("updateByQueryBigData success!, result:" + queryBuilder.toString());
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                logger.error("updateByQueryBigData failed!, queryBuilder:" + request.toString(), e);
+            }
+        };
+
+        client.updateByQueryAsync(request, RequestOptions.DEFAULT, listener);
+    }
+
+    @Override
     public SearchResponse search(SearchRequest request) throws Exception {
         return client.search(request, RequestOptions.DEFAULT);
     }
@@ -242,6 +322,7 @@ public class ESDaoImpl<T> implements ESDao<T> {
             throw new Exception("es parameter is null!");
         }
 
+        Gson gson = new Gson();
         MetaData metaData = Tools.getMetaData(clazz);
         String indexName = metaData.getIndexName();
         String indexType = metaData.getIndexType();
@@ -251,7 +332,7 @@ public class ESDaoImpl<T> implements ESDao<T> {
 
         if (response.isExists()) {
             String resultString = response.getSourceAsString();
-            return JSON.parseObject(resultString, clazz);
+            return gson.fromJson(resultString, clazz);
         }
 
         return null;
@@ -261,6 +342,7 @@ public class ESDaoImpl<T> implements ESDao<T> {
     public List<T> search(List<String> ids, Class<T> clazz) throws Exception {
         List<T> resultList = new ArrayList<>();
 
+        Gson gson = new Gson();
         MetaData metaData = Tools.getMetaData(clazz);
         String indexName = metaData.getIndexName();
         String indexType = metaData.getIndexType();
@@ -268,10 +350,9 @@ public class ESDaoImpl<T> implements ESDao<T> {
         MultiGetRequest request = new MultiGetRequest();
 
         for (String id : ids) {
-            if (id == null && id.isEmpty()) {
-                throw new Exception("es parameter is null!");
+            if (!StringUtils.isEmpty(id)) {
+                request.add(new MultiGetRequest.Item(indexName, indexType, id));
             }
-            request.add(new MultiGetRequest.Item(indexName, indexType, id));
         }
 
         MultiGetResponse responses = client.mget(request, RequestOptions.DEFAULT);
@@ -279,7 +360,7 @@ public class ESDaoImpl<T> implements ESDao<T> {
         for (MultiGetItemResponse itemResponse : responses) {
             if (itemResponse.getResponse().isExists()) {
                 String resultString = itemResponse.getResponse().getSourceAsString();
-                resultList.add(JSON.parseObject(resultString, clazz));
+                resultList.add(gson.fromJson(resultString, clazz));
             }
         }
         return resultList;
@@ -296,6 +377,7 @@ public class ESDaoImpl<T> implements ESDao<T> {
             throw new Exception("es parameter is null!");
         }
 
+        Gson gson = new Gson();
         List<T> resultList = new ArrayList<>();
         MetaData metaData = Tools.getMetaData(t.getClass());
         String indexName = metaData.getIndexName();
@@ -305,7 +387,7 @@ public class ESDaoImpl<T> implements ESDao<T> {
         request.types(indexType);
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
-        Map<String, Object> map = JSON.parseObject(JSON.toJSONString(t), Map.class);
+        Map<String, Object> map = gson.fromJson(gson.toJson(t), Map.class);
         for (String key : map.keySet()) {
             boolQueryBuilder.must(new TermQueryBuilder(key, map.get(key)));
         }
@@ -326,7 +408,7 @@ public class ESDaoImpl<T> implements ESDao<T> {
         SearchResponse response = client.search(request, RequestOptions.DEFAULT);
         for (SearchHit hit : response.getHits()) {
             String resultString = hit.getSourceAsString();
-            resultList.add((T) JSON.parseObject(resultString, t.getClass()));
+            resultList.add((T) gson.fromJson(resultString, t.getClass()));
         }
 
         // 处理分页结果
@@ -341,12 +423,12 @@ public class ESDaoImpl<T> implements ESDao<T> {
     }
 
     @Override
-    public SearchResponse search(SearchSourceBuilder sourceBuilder, Class<T> clazz) throws Exception {
-        return search(sourceBuilder, clazz, null);
+    public SearchResponse searchAggregation(SearchSourceBuilder sourceBuilder, Class<T> clazz) throws Exception {
+        return searchAggregation(sourceBuilder, clazz, null);
     }
 
     @Override
-    public SearchResponse search(SearchSourceBuilder sourceBuilder, Class<T> clazz, ESPage page) throws Exception {
+    public SearchResponse searchAggregation(SearchSourceBuilder sourceBuilder, Class<T> clazz, ESPage page) throws Exception {
         if (sourceBuilder == null) {
             throw new Exception("es parameter is null!");
         }
@@ -367,7 +449,7 @@ public class ESDaoImpl<T> implements ESDao<T> {
                 throw new Exception("分页深度超过一万条，拒绝请求！");
             }
         } else {
-            sourceBuilder.size(ESConstant.esCoreSizeParam.PAGINATION_SIZE);//默认最大返回10000条，超过的话用searchScroll()方法游标查询全部的
+            sourceBuilder.size(0);//聚合查询默认是不返回文档的
         }
 
         request.source(sourceBuilder);
@@ -385,17 +467,19 @@ public class ESDaoImpl<T> implements ESDao<T> {
     }
 
     @Override
-    public SearchResponse searchByScroll(RestHighLevelClient client, ESParamVo vo, SearchSourceBuilder sourceBuilder, String scrollId) throws Exception {
-        if (sourceBuilder == null && org.apache.commons.lang3.StringUtils.isEmpty(scrollId)) {
+    public SearchResponse searchByScroll(SearchSourceBuilder sourceBuilder, Class<T> clazz, String scrollId) throws Exception {
+        if (sourceBuilder == null && StringUtils.isEmpty(scrollId)) {
             throw new Exception("The es parameter must have an not empty one!");
         }
 
+        MetaData metaData = Tools.getMetaData(clazz);
+        String indexName = metaData.getIndexName();
+
         SearchResponse response;
         Scroll scroll = new Scroll(TimeValue.timeValueMinutes(1));
-        int size = sourceBuilder.size();//一次查多少
-        // 第一次查询用sourceBuilder查
-        if (org.apache.commons.lang3.StringUtils.isEmpty(scrollId)) {
-            SearchRequest request = new SearchRequest();
+        // 第一次查询用sourceBuilder查，一次默认查10条
+        if (StringUtils.isEmpty(scrollId)) {
+            SearchRequest request = new SearchRequest(indexName);
             request.scroll(scroll);
             request.source(sourceBuilder);
 
@@ -407,8 +491,9 @@ public class ESDaoImpl<T> implements ESDao<T> {
             response = client.scroll(scrollRequest, RequestOptions.DEFAULT);
         }
 
+        scrollId = response.getScrollId();
         // 所有数据都查询完毕的时候，清除游标
-        if (response.getHits().totalHits == 0) {
+        if (scrollId != null && response.getHits().getHits().length == 0) {
             ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
             clearScrollRequest.addScrollId(scrollId);
             ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
@@ -422,46 +507,6 @@ public class ESDaoImpl<T> implements ESDao<T> {
 
         return response;
     }
-
-    @Override
-    public SearchResponse searchByScrollSlice(RestHighLevelClient client, ESParamVo vo, SearchSourceBuilder sourceBuilder, String scrollId) throws Exception {
-        if (sourceBuilder == null && org.apache.commons.lang3.StringUtils.isEmpty(scrollId)) {
-            throw new Exception("The es parameter must have an not empty one!");
-        }
-
-        SearchResponse response;
-        Scroll scroll = new Scroll(TimeValue.timeValueMinutes(1));
-        int size = sourceBuilder.size();//一次查多少
-        // 第一次查询用sourceBuilder查
-        if (org.apache.commons.lang3.StringUtils.isEmpty(scrollId)) {
-            SearchRequest request = new SearchRequest();
-            request.scroll(scroll);
-            request.source(sourceBuilder);
-
-            response = client.search(request, RequestOptions.DEFAULT);
-        } else {
-            // 后面查询用scrollId查
-            SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
-            scrollRequest.scroll(scroll);
-            response = client.scroll(scrollRequest, RequestOptions.DEFAULT);
-        }
-
-        // 所有数据都查询完毕的时候，清除游标
-        if (response.getHits().totalHits == 0) {
-            ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
-            clearScrollRequest.addScrollId(scrollId);
-            ClearScrollResponse clearScrollResponse = client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
-
-            if (clearScrollResponse.isSucceeded()) {
-                logger.info("es scroll clear successed!");
-            } else {
-                logger.error("es scroll clear failed!");
-            }
-        }
-
-        return response;
-    }
-
 
     /**
      * 处理返回结果
@@ -477,6 +522,8 @@ public class ESDaoImpl<T> implements ESDao<T> {
             logger.info("DOCUMENT UPDATE SUCCESS!");
         } else if (response.getResult() == DocWriteResponse.Result.DELETED) {
             logger.info("DOCUMENT DELETE SUCCESS!");
+        } else if (response.getResult() == DocWriteResponse.Result.NOOP) {
+            logger.info("DOCUMENT NO CHANGE!");
         } else {
             result = false;
             logger.info("DOCUMENT OPERATION FAILED! ---" + response.getId());

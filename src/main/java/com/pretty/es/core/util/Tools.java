@@ -1,5 +1,6 @@
 package com.pretty.es.core.util;
 
+
 import com.pretty.es.core.annotion.ESId;
 import com.pretty.es.core.annotion.ESMetaData;
 
