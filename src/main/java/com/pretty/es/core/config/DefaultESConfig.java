@@ -21,7 +21,7 @@ public class DefaultESConfig {
 
     private static final Logger LOGGER = LogManager.getLogger(DefaultESConfig.class);
 
-    @Value("${default.es.server.host:127.0.0.1:9200}")
+    @Value("${default.es.server.host}")
     private String host;
 
     @Value("${default.es.xpark.enable:false}")
