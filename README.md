@@ -1,6 +1,15 @@
 # pretty-elasticsearch-core
 
-elasticsearch的HighRestClient使用工具包
+pretty-elasticsearch-core是基于elasticsearch 6.5.3版本的RestHighLevelClient使用工具包，可整合到spring 4.0以上的版本中
+
+最大的优点是快速整合，如果你只用连接单个集群，那么你只需要做三个动作：
+
+    1）加入配置文件
+
+    2）给索引对应的实体加上两个注解
+
+    3）注入esDao，并使用
+    
 
 ## 一、使用说明
 
