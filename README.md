@@ -155,8 +155,7 @@ fresh.es.xpark.enable=true
 fresh.es.xpark.username=elastic
 fresh.es.xpark.password=elastic
 ```
-*添加x-park对使用不受影响
-*如果多个集群都使用了xpark，则需要分别添加对应的配置信息,如上
+*添加x-park对使用不受影响，如果多个集群都使用了xpark，则需要分别添加对应的配置信息,如上
 
 ## 二、方法说明
 
@@ -421,12 +420,14 @@ fresh.es.xpark.password=elastic
 ## 三、参考来源
 	
 ### 1、Elasticsearch-EsClientRHL
-	这是个人开发的一个ES使用工具包，适用于spring和spring boot项目，看源码是借鉴了Spring Data Elasticsearch，但是不支持xpark和多集群模式，聚合和全文检索功能较多，文档也非常详细，但是局限性较大
-	参考链接：https://gitee.com/zxporz/ESClientRHL
+这是个人开发的一个ES使用工具包，适用于spring和spring boot项目，看源码是借鉴了Spring Data Elasticsearch，但是不支持xpark和多集群模式，聚合和全文检索功能较多，文档也非常详细，但是局限性较大
+
+参考链接： https://gitee.com/zxporz/ESClientRHL
 	
 ### 2、Spring Data Elasticsearch
-	这是spring官方提供spring项目集成ElasticSearch的工具包。这次优化的重点基本是参考这个实现的，但是该工具包更新较慢，如果公司要升级ES，而该工具包没有对应ES版本的话，只能干瞪眼
-	只有node client和transport client两种客户端的使用，最新的3.2.0以上版本支持rest client，使用方法和本文档使用方法一样。 
-	参考链接：https://github.com/spring-projects/spring-data-elasticsearch
+这是spring官方提供spring项目集成ElasticSearch的工具包。这次优化的重点基本是参考这个实现的，但是该工具包更新较慢，如果公司要升级ES，而该工具包没有对应ES版本的话，只能干瞪眼
+只有node client和transport client两种客户端的使用，最新的3.2.0以上版本支持rest client，使用方法和本文档使用方法一样。 
+
+参考链接： https://github.com/spring-projects/spring-data-elasticsearch
 
 
