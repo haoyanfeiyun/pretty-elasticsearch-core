@@ -1,6 +1,6 @@
 # pretty-elasticsearch-core
 
-elasticsearch的HighRestClient使用工具包
+pretty-elasticsearch-core是基于elasticsearch 6.5.3版本的HighRestClient使用工具包，可整合到spring 4.0以上的版本中
 
 ## 一、使用说明
 
