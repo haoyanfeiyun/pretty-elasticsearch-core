@@ -2,14 +2,12 @@ package com.pretty.es.core.common;
 
 
 import com.pretty.es.core.util.CUDResponse;
-import com.pretty.es.core.vo.Condition;
 import com.pretty.es.core.vo.ESPage;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.SourceSimpleFragmentsBuilder;
 
 import java.util.List;
 
