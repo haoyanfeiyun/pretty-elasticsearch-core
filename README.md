@@ -374,6 +374,17 @@ fresh.es.xpark.password=elastic
      * @throws Exception
      */
     List<T> search(T t, ESPage page) throws Exception;
+    
+     /**
+     *  根据条件查询---分页+排序
+     *  分页深度超过一万条，会直接抛出异常，请使用searchByScroll方法
+     * @param sourceBuilder
+     * @param clazz
+     * @param page
+     * @return
+     * @throws Exception
+     */
+    List<T> search(SearchSourceBuilder sourceBuilder, Class<T> clazz, ESPage page) throws Exception;
 
     /**
      * 聚合查询
