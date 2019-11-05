@@ -1,11 +1,23 @@
 package com.pretty.es.core.vo;
 
+import java.util.List;
+
 public class ESPage {
     private long totalNumber;//当前表中总条目数量
     private int currentPage = 1;//当前页的位置
     private int totalPage;//总页数
     private int size = 10;//页面大小
     private int from = 0;//检索的起始位置
+
+    List<Sort> sortList;
+
+    public List<Sort> getSortList() {
+        return sortList;
+    }
+
+    public void setSortList(List<Sort> sortList) {
+        this.sortList = sortList;
+    }
 
     public int getCurrentPage() {
         return currentPage;
@@ -59,14 +71,12 @@ public class ESPage {
         this.size = size;
     }
 
-    public ESPage(int totalNumber, int currentPage, int totalPage, int from, int size) {
-        super();
-        this.totalNumber = totalNumber;
-        this.currentPage = currentPage;
-        this.totalPage = totalPage;
-        this.from = from;
+    public ESPage(int size, int from, List<Sort> sortList) {
         this.size = size;
+        this.from = from;
+        this.sortList = sortList;
     }
+
 
     public void count() {
         int totalPageTemp = (int) this.totalNumber / this.size;

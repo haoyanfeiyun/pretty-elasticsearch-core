@@ -8,6 +8,7 @@ import com.pretty.es.core.util.ESConstant;
 import com.pretty.es.core.util.MetaData;
 import com.pretty.es.core.util.Tools;
 import com.pretty.es.core.vo.ESPage;
+import com.pretty.es.core.vo.Sort;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
@@ -40,6 +41,7 @@ import org.elasticsearch.script.Script;
 import org.elasticsearch.search.Scroll;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -409,6 +411,58 @@ public class ESDaoImpl<T> implements ESDao<T> {
         for (SearchHit hit : response.getHits()) {
             String resultString = hit.getSourceAsString();
             resultList.add((T) gson.fromJson(resultString, t.getClass()));
+        }
+
+        // 处理分页结果
+        if (page != null) {
+            int totalNum = (int) response.getHits().getTotalHits();
+            int totalPage = totalNum / page.getSize() + 1;
+            page.setTotalNumber(totalNum);
+            page.setTotalPage(totalPage);
+        }
+
+        return resultList;
+    }
+
+    @Override
+    public List<T> search(SearchSourceBuilder sourceBuilder, Class<T> clazz, ESPage page) throws Exception {
+        if (sourceBuilder == null) {
+            throw new Exception("es parameter is null!");
+        }
+
+        Gson gson = new Gson();
+        List<T> resultList = new ArrayList<>();
+        MetaData metaData = Tools.getMetaData(clazz);
+        String indexName = metaData.getIndexName();
+        String indexType = metaData.getIndexType();
+
+        SearchRequest request = new SearchRequest(indexName);
+        request.types(indexType);
+
+        // 处理分页信息
+        if (page != null) {
+            page.countFromAndSize();
+            sourceBuilder.size(page.getSize());
+            sourceBuilder.from(page.getFrom());
+            if (page.getSize() + page.getFrom() > ESConstant.esCoreSizeParam.PAGINATION_SIZE) {
+                throw new Exception("分页深度超过一万条，拒绝请求！");
+            }
+        } else {
+            sourceBuilder.size(ESConstant.esCoreSizeParam.PAGINATION_SIZE);//默认最大返回10000条，超过的话用searchScroll()方法游标查询全部的
+        }
+
+        // 处理排序
+        if (page != null && !CollectionUtils.isEmpty(page.getSortList())) {
+            for (Sort sort : page.getSortList()) {
+                sourceBuilder.sort(sort.getProperty(), sort.getDirection());
+            }
+        }
+
+        request.source(sourceBuilder);
+        SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+        for (SearchHit hit : response.getHits()) {
+            String resultString = hit.getSourceAsString();
+            resultList.add((T) gson.fromJson(resultString, clazz.getClass()));
         }
 
         // 处理分页结果

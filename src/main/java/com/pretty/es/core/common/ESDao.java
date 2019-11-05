@@ -2,12 +2,14 @@ package com.pretty.es.core.common;
 
 
 import com.pretty.es.core.util.CUDResponse;
+import com.pretty.es.core.vo.Condition;
 import com.pretty.es.core.vo.ESPage;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.fetch.subphase.highlight.SourceSimpleFragmentsBuilder;
 
 import java.util.List;
 
@@ -217,6 +219,17 @@ public interface ESDao<T> {
      * @throws Exception
      */
     List<T> search(T t, ESPage page) throws Exception;
+
+    /**
+     *  根据条件查询---分页+排序
+     *  分页深度超过一万条，会直接抛出异常，请使用searchByScroll方法
+     * @param sourceBuilder
+     * @param clazz
+     * @param page
+     * @return
+     * @throws Exception
+     */
+    List<T> search(SearchSourceBuilder sourceBuilder, Class<T> clazz, ESPage page) throws Exception;
 
     /**
      * 聚合查询
